@@ -1,0 +1,6 @@
+{
+  "name": "Narrofy",
+  "description": "Next-generation social storytelling platform with personalized feeds, rich media stories, and community interaction.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

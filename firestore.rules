@@ -1,0 +1,224 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global deny-all safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email != null && request.auth.token.email == 'aryanth050@gmail.com')
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 24-Hour Rule calculation using server-side timestamp
+    function isWithin24HoursOfPublication(publishedAt) {
+      return publishedAt != null && request.time < publishedAt + duration.value(24, 'h');
+    }
+
+    // --- Users Collection ---
+    // User profile editing is NOT restricted to 24 hours.
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isOwner(userId)
+        && isValidId(userId)
+        && incoming().uid == request.auth.uid
+        && incoming().displayName is string && incoming().displayName.size() <= 100
+        && incoming().username is string && incoming().username.size() <= 50
+        && incoming().email is string && incoming().email.size() <= 255;
+      allow update: if (isOwner(userId) || isAdmin())
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        && (!incoming().diff(existing()).affectedKeys().hasAny(['isAdmin', 'role']));
+      allow delete: if isAdmin();
+    }
+
+    // --- Stories Collection ---
+    // 24-Hour Rule: normal creators can edit/delete only within 24 hours of publishedAt.
+    // Drafts can be edited/deleted at any time by author.
+    match /stories/{storyId} {
+      allow get: if resource.data.status == 'published' || (isSignedIn() && resource.data.authorId == request.auth.uid) || isAdmin();
+      allow list: if resource.data.status == 'published' || (isSignedIn() && resource.data.authorId == request.auth.uid) || isAdmin();
+      
+      allow create: if isSignedIn()
+        && isValidId(storyId)
+        && incoming().authorId == request.auth.uid
+        && incoming().title is string && incoming().title.size() <= 200
+        && incoming().category is string && incoming().category.size() <= 64;
+
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (
+          resource.data.authorId == request.auth.uid &&
+          incoming().authorId == existing().authorId &&
+          incoming().createdAt == existing().createdAt &&
+          (
+            // If it was draft, creator can update
+            existing().status == 'draft' ||
+            // If it was published, creator can only update within 24 hours of publishedAt
+            isWithin24HoursOfPublication(existing().publishedAt)
+          )
+        ) ||
+        // Allow public counters increment (views, likesCount, commentsCount, sharesCount)
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly(['views', 'likesCount', 'commentsCount', 'sharesCount'])
+        )
+      );
+
+      allow delete: if isSignedIn() && (
+        isAdmin() ||
+        (
+          resource.data.authorId == request.auth.uid &&
+          (
+            existing().status == 'draft' ||
+            isWithin24HoursOfPublication(existing().publishedAt)
+          )
+        )
+      );
+    }
+
+    // --- Posts Collection ---
+    // Short posts also respect the 24-hour edit/delete rule for authors.
+    match /posts/{postId} {
+      allow get, list: if true;
+      allow create: if isSignedIn()
+        && isValidId(postId)
+        && incoming().authorId == request.auth.uid
+        && incoming().content is string && incoming().content.size() <= 2000;
+
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (
+          resource.data.authorId == request.auth.uid &&
+          incoming().authorId == existing().authorId &&
+          isWithin24HoursOfPublication(existing().createdAt)
+        ) ||
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly(['likesCount', 'commentsCount'])
+        )
+      );
+
+      allow delete: if isSignedIn() && (
+        isAdmin() ||
+        (
+          resource.data.authorId == request.auth.uid &&
+          isWithin24HoursOfPublication(existing().createdAt)
+        )
+      );
+    }
+
+    // --- Comments Collection ---
+    // Users can create and only edit/delete their own comments.
+    match /comments/{commentId} {
+      allow get, list: if true;
+      allow create: if isSignedIn()
+        && isValidId(commentId)
+        && incoming().authorId == request.auth.uid
+        && incoming().content is string && incoming().content.size() <= 2000;
+
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (resource.data.authorId == request.auth.uid && incoming().authorId == existing().authorId)
+      );
+
+      allow delete: if isSignedIn() && (
+        isAdmin() || resource.data.authorId == request.auth.uid
+      );
+    }
+
+    // --- Likes Collection ---
+    // Compound ID: {userId}_{targetId}
+    match /likes/{likeId} {
+      allow get, list: if true;
+      allow create: if isSignedIn()
+        && isValidId(likeId)
+        && incoming().userId == request.auth.uid;
+      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // --- Bookmarks Collection ---
+    // Compound ID: {userId}_{storyId}
+    match /bookmarks/{bookmarkId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && isValidId(bookmarkId)
+        && incoming().userId == request.auth.uid;
+      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // --- Follows Collection ---
+    // Compound ID: {followerId}_{followingId}
+    match /follows/{followId} {
+      allow get, list: if true;
+      allow create: if isSignedIn()
+        && isValidId(followId)
+        && incoming().followerId == request.auth.uid;
+      allow delete: if isSignedIn() && (resource.data.followerId == request.auth.uid || isAdmin());
+    }
+
+    // --- Notifications Collection ---
+    match /notifications/{notificationId} {
+      allow get, list: if isSignedIn() && resource.data.recipientId == request.auth.uid;
+      allow create: if isSignedIn() && incoming().senderId == request.auth.uid;
+      allow update: if isSignedIn()
+        && resource.data.recipientId == request.auth.uid
+        && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+      allow delete: if isSignedIn() && (resource.data.recipientId == request.auth.uid || isAdmin());
+    }
+
+    // --- Reading History Collection ---
+    match /readingHistory/{historyId} {
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create, update: if isSignedIn()
+        && isValidId(historyId)
+        && incoming().userId == request.auth.uid;
+      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // --- Categories Collection ---
+    match /categories/{categoryId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Reports Collection ---
+    match /reports/{reportId} {
+      allow create: if isSignedIn()
+        && isValidId(reportId)
+        && incoming().reporterId == request.auth.uid;
+      allow get, list, update, delete: if isAdmin();
+    }
+
+    // --- Admins Collection ---
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

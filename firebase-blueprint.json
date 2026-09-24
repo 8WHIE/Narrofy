@@ -1,0 +1,229 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile in Narrofy",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "username": { "type": "string", "maxLength": 50, "pattern": "^[a-zA-Z0-9_]+$" },
+        "email": { "type": "string", "maxLength": 255 },
+        "photoURL": { "type": "string", "maxLength": 1024 },
+        "bio": { "type": "string", "maxLength": 1000 },
+        "selectedCategories": { "type": "array", "description": "Preferred story categories" },
+        "followersCount": { "type": "number" },
+        "followingCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "username", "email", "createdAt", "updatedAt"]
+    },
+    "Story": {
+      "title": "Story",
+      "description": "Story published or drafted by an author",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "authorId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "coverImageUrl": { "type": "string", "maxLength": 1024 },
+        "category": { "type": "string", "maxLength": 64 },
+        "tags": { "type": "array" },
+        "language": { "type": "string", "maxLength": 16 },
+        "content": { "type": "string", "maxLength": 500000 },
+        "chapters": { "type": "array" },
+        "media": { "type": "array" },
+        "status": { "type": "string", "enum": ["draft", "published"] },
+        "publishedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "views": { "type": "number" },
+        "likesCount": { "type": "number" },
+        "commentsCount": { "type": "number" },
+        "sharesCount": { "type": "number" }
+      },
+      "required": ["id", "authorId", "title", "category", "status", "createdAt", "updatedAt"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Short feed post or media update by an author",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "authorId": { "type": "string", "maxLength": 128 },
+        "content": { "type": "string", "maxLength": 2000 },
+        "mediaUrl": { "type": "string", "maxLength": 1024 },
+        "mediaType": { "type": "string", "enum": ["image", "video"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "publishedAt": { "type": "string", "format": "date-time" },
+        "likesCount": { "type": "number" },
+        "commentsCount": { "type": "number" }
+      },
+      "required": ["id", "authorId", "content", "createdAt"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "User comment or reply on a story or post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "targetId": { "type": "string", "maxLength": 128 },
+        "targetType": { "type": "string", "enum": ["story", "post"] },
+        "parentId": { "type": "string", "maxLength": 128 },
+        "authorId": { "type": "string", "maxLength": 128 },
+        "authorName": { "type": "string", "maxLength": 100 },
+        "authorPhoto": { "type": "string", "maxLength": 1024 },
+        "content": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "targetId", "authorId", "content", "createdAt"]
+    },
+    "Like": {
+      "title": "Like",
+      "description": "Like interaction from a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "targetId": { "type": "string", "maxLength": 128 },
+        "targetType": { "type": "string", "enum": ["story", "post"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "targetId", "createdAt"]
+    },
+    "Bookmark": {
+      "title": "Bookmark",
+      "description": "Saved story bookmark by a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "storyId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "storyId", "createdAt"]
+    },
+    "Follow": {
+      "title": "Follow",
+      "description": "Follow relationship between two users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "followerId": { "type": "string", "maxLength": 128 },
+        "followingId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "followerId", "followingId", "createdAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User in-app notification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "recipientId": { "type": "string", "maxLength": 128 },
+        "senderId": { "type": "string", "maxLength": 128 },
+        "senderName": { "type": "string", "maxLength": 100 },
+        "senderPhoto": { "type": "string", "maxLength": 1024 },
+        "type": { "type": "string", "enum": ["like", "comment", "follow", "story"] },
+        "targetId": { "type": "string", "maxLength": 128 },
+        "message": { "type": "string", "maxLength": 500 },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "recipientId", "senderId", "type", "createdAt", "read"]
+    },
+    "ReadingHistory": {
+      "title": "ReadingHistory",
+      "description": "Story reading progress for a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "storyId": { "type": "string", "maxLength": 128 },
+        "lastReadChapter": { "type": "number" },
+        "progressPercent": { "type": "number" },
+        "lastReadAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "storyId", "lastReadAt"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Genre or story category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "maxLength": 100 },
+        "slug": { "type": "string", "maxLength": 64 },
+        "description": { "type": "string", "maxLength": 500 },
+        "icon": { "type": "string", "maxLength": 64 },
+        "color": { "type": "string", "maxLength": 32 }
+      },
+      "required": ["id", "name", "slug"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "Content moderation report",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "reporterId": { "type": "string", "maxLength": 128 },
+        "targetId": { "type": "string", "maxLength": 128 },
+        "targetType": { "type": "string", "enum": ["story", "post", "comment", "user"] },
+        "reason": { "type": "string", "maxLength": 1000 },
+        "status": { "type": "string", "enum": ["pending", "reviewed", "dismissed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "reporterId", "targetId", "targetType", "reason", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "Narrofy user profiles"
+    },
+    "/stories/{storyId}": {
+      "schema": "Story",
+      "description": "Published and draft stories"
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Short feed posts"
+    },
+    "/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "Comments and replies on stories and posts"
+    },
+    "/likes/{likeId}": {
+      "schema": "Like",
+      "description": "Likes on stories and posts"
+    },
+    "/bookmarks/{bookmarkId}": {
+      "schema": "Bookmark",
+      "description": "User bookmarked stories"
+    },
+    "/follows/{followId}": {
+      "schema": "Follow",
+      "description": "User follow relationships"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "In-app notifications for users"
+    },
+    "/readingHistory/{historyId}": {
+      "schema": "ReadingHistory",
+      "description": "Reading progress and continue-reading records"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Story categories and genres"
+    },
+    "/reports/{reportId}": {
+      "schema": "Report",
+      "description": "Content moderation reports"
+    }
+  }
+}
